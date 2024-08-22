@@ -14,9 +14,9 @@ public class TransactionService : ITransactionService
         _context = context;
     }
 
-    public void AddTransaction(int id, DateTime transactionDate, decimal amount)
+    public async Task AddTransactionAsync(int id, DateTime transactionDate, decimal amount)
     {
-        if (_context.Transactions.Any(t => t.Id == id))
+        if (await _context.Transactions.AnyAsync(t => t.Id == id))
         {
             throw new InvalidOperationException($"Транзакция с Id {id} уже существует.");
         }
@@ -28,20 +28,13 @@ public class TransactionService : ITransactionService
             Amount = amount
         };
 
-        try
-        {
-            _context.Transactions.Add(transaction);
-            _context.SaveChanges();
-        }
-        catch (DbUpdateException ex)
-        {
-            throw new Exception("Ошибка при сохранении транзакции в базу данных.", ex);
-        }
+        await _context.Transactions.AddAsync(transaction);
+        await _context.SaveChangesAsync();
     }
 
-    public Transaction GetTransaction(int id)
+    public async Task<Transaction> GetTransactionAsync(int id)
     {
-        var transaction = _context.Transactions.Find(id);
+        var transaction = await _context.Transactions.FindAsync(id);
         if (transaction == null)
         {
             throw new KeyNotFoundException($"Транзакция с Id {id} не найдена.");

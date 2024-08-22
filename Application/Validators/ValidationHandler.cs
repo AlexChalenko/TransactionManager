@@ -4,7 +4,7 @@ namespace Application.Validators
 {
     public abstract class ValidationHandler<T> : IValidationHandler<T>
     {
-        private IValidationHandler<T> _nextHandler;
+        private IValidationHandler<T>? _nextHandler;
 
         public IValidationHandler<T> SetNext(IValidationHandler<T> handler)
         {

@@ -13,7 +13,7 @@ namespace TransactionManager
 {
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             var serviceProvider = new ServiceCollection()
                 .AddDbContext<ApplicationDbContext>(options => options.UseSqlite("Data Source=transactions.db"))
@@ -25,7 +25,7 @@ namespace TransactionManager
                 .BuildServiceProvider();
 
             var context = serviceProvider.GetRequiredService<ApplicationDbContext>();
-            context.Database.Migrate();
+            await context.Database.MigrateAsync();
 
             var transactionService = serviceProvider.GetRequiredService<ITransactionService>();
             var validationPipeline = serviceProvider.GetRequiredService<ValidationPipeline<TransactionRequest>>();
@@ -38,10 +38,10 @@ namespace TransactionManager
                 switch (command)
                 {
                     case "add":
-                        AddTransaction(transactionService, validationPipeline);
+                        await AddTransactionAsync(transactionService, validationPipeline);
                         break;
                     case "get":
-                        GetTransaction(transactionService);
+                        await GetTransactionAsync(transactionService);
                         break;
                     case "exit":
                         return;
@@ -52,22 +52,31 @@ namespace TransactionManager
             }
         }
 
-
-        private static void AddTransaction(ITransactionService transactionService, ValidationPipeline<TransactionRequest> validationPipeline)
+        private static async Task AddTransactionAsync(ITransactionService transactionService, ValidationPipeline<TransactionRequest> validationPipeline)
         {
             try
             {
-                // Получение и проверка ввода данных
                 Console.Write("Введите Id: ");
-                int id = int.Parse(Console.ReadLine());
+                if (!int.TryParse(Console.ReadLine(), out int id) || id <= 0)
+                {
+                    Console.WriteLine("Ошибка: некорректный формат Id. Id должен быть положительным числом.");
+                    return;
+                }
 
-                Console.Write("Введите дату (в формате дд.мм.гггг): ");
-                DateTime date = DateTime.ParseExact(Console.ReadLine(), "dd.MM.yyyy", CultureInfo.InvariantCulture);
+                Console.Write("Введите дату: ");
+                if (!DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date))
+                {
+                    Console.WriteLine("Ошибка: некорректный формат даты.");
+                    return;
+                }
 
                 Console.Write("Введите сумму: ");
-                decimal amount = decimal.Parse(Console.ReadLine());
+                if (!decimal.TryParse(Console.ReadLine(), NumberStyles.Number, CultureInfo.InvariantCulture, out decimal amount) || amount <= 0)
+                {
+                    Console.WriteLine("Ошибка: некорректный формат суммы. Сумма должна быть положительным числом.");
+                    return;
+                }
 
-                // Создание запроса для валидации
                 var request = new TransactionRequest
                 {
                     Id = id,
@@ -75,11 +84,9 @@ namespace TransactionManager
                     Amount = amount
                 };
 
-                // Валидация
                 validationPipeline.Validate(request);
 
-                // Если валидация успешна, добавляем транзакцию
-                transactionService.AddTransaction(id, date, amount);
+                await transactionService.AddTransactionAsync(id, date, amount);
                 Console.WriteLine("[OK]");
             }
             catch (ArgumentException ex)
@@ -92,20 +99,18 @@ namespace TransactionManager
             }
         }
 
-
-
-        private static void GetTransaction(ITransactionService transactionService)
+        private static async Task GetTransactionAsync(ITransactionService transactionService)
         {
             try
             {
                 Console.Write("Введите Id: ");
-                if (!int.TryParse(Console.ReadLine(), out int id))
+                if (!int.TryParse(Console.ReadLine(), out int id) || id <= 0)
                 {
-                    Console.WriteLine("Ошибка: некорректный формат Id.");
+                    Console.WriteLine("Ошибка: некорректный формат Id. Id должен быть положительным числом.");
                     return;
                 }
 
-                var transaction = transactionService.GetTransaction(id);
+                var transaction = await transactionService.GetTransactionAsync(id);
                 string json = JsonConvert.SerializeObject(transaction, new JsonSerializerSettings
                 {
                     Culture = CultureInfo.InvariantCulture
@@ -122,6 +127,5 @@ namespace TransactionManager
                 Console.WriteLine($"Ошибка при получении транзакции: {ex.Message}");
             }
         }
-
     }
 }
